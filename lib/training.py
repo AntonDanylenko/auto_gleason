@@ -12,11 +12,15 @@ import time
 import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 # from torch.nn import BCEWithLogitsLoss
 
 
 
 def training(all_train_img_names):
+	# TensorBoard summary writer instance
+	writer = SummaryWriter()
+
 	# Get mask thumbnail dictionary
 	thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH) + "x" + str(PATCH_HEIGHT) + ".p"
 	if not os.path.exists(thumbnail_filename):
@@ -127,8 +131,10 @@ def training(all_train_img_names):
 		avgTrainLoss = totalTrainLoss / trainSteps
 		avgValLoss = totalValLoss / valSteps
 		# update our training history
-		H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
-		H["val_loss"].append(avgValLoss.cpu().detach().numpy())
+		writer.add_scalar("Loss/train", avgTrainLoss.cpu().detach().numpy(), e)
+		writer.add_scalar("Loss/val", avgValLoss.cpu().detach().numpy(), e)
+		# H["train_loss"].append(avgTrainLoss.cpu().detach().numpy())
+		# H["val_loss"].append(avgValLoss.cpu().detach().numpy())
 		# print the model training and validation information
 		print("[INFO] EPOCH: {}/{}".format(e + 1, NUM_EPOCHS))
 		print("Train loss: {:.6f}, Val loss: {:.4f}".format(
@@ -142,15 +148,18 @@ def training(all_train_img_names):
 	# serialize the model to disk
 	# torch.save(unet, MODEL_PATH)
 
-	# plot the training loss
-	plt.style.use("ggplot")
-	plt.figure()
-	plt.plot(H["train_loss"], label="train_loss")
-	plt.plot(H["val_loss"], label="val_loss")
-	plt.title("Training Loss on Dataset")
-	plt.xlabel("Epoch #")
-	plt.ylabel("Loss")
-	plt.legend(loc="lower left")
-	plt.savefig(PLOT_PATH)
+	# # plot the training loss
+	# plt.style.use("ggplot")
+	# plt.figure()
+	# plt.plot(H["train_loss"], label="train_loss")
+	# plt.plot(H["val_loss"], label="val_loss")
+	# plt.title("Training Loss on Dataset")
+	# plt.xlabel("Epoch #")
+	# plt.ylabel("Loss")
+	# plt.legend(loc="lower left")
+	# plt.savefig(PLOT_PATH)
+
+	writer.flush()
+	writer.close()
 
 	return unet
