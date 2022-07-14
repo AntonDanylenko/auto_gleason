@@ -7,7 +7,7 @@ import torch.nn.functional as F
 # based on:
 # https://github.com/zhezh/focalloss/blob/master/focalloss.py
 
-[docs]class FocalLoss(nn.Module):
+class FocalLoss(nn.Module):
     r"""Criterion that computes Focal loss.
 
     According to [1], the Focal loss is computed as follows:
@@ -24,14 +24,14 @@ import torch.nn.functional as F
         alpha (float): Weighting factor :math:`\alpha \in [0, 1]`.
         gamma (float): Focusing parameter :math:`\gamma >= 0`.
         reduction (Optional[str]): Specifies the reduction to apply to the
-         output: ‘none’ | ‘mean’ | ‘sum’. ‘none’: no reduction will be applied,
-         ‘mean’: the sum of the output will be divided by the number of elements
-         in the output, ‘sum’: the output will be summed. Default: ‘none’.
+         output: 'none' | 'mean' | 'sum'. 'none': no reduction will be applied,
+         'mean': the sum of the output will be divided by the number of elements
+         in the output, 'sum': the output will be summed. Default: 'none'.
 
     Shape:
         - Input: :math:`(N, C, H, W)` where C = number of classes.
         - Target: :math:`(N, H, W)` where each value is
-          :math:`0 ≤ targets[i] ≤ C−1`.
+          :math:`0 ≤ targets[i] ≤ C-1`.
 
     Examples:
         >>> N = 5  # num_classes
@@ -101,7 +101,7 @@ import torch.nn.functional as F
 ######################
 
 
-[docs]def focal_loss(
+def focal_loss(
         input: torch.Tensor,
         target: torch.Tensor,
         alpha: float,
