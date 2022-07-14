@@ -1,3 +1,4 @@
 data
 env
+lib/__pycache__
 output
