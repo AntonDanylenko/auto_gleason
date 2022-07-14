@@ -46,7 +46,7 @@ class FocalLoss(nn.Module):
     """
 
     def __init__(self, alpha: float, gamma: Optional[float] = 2.0,
-                 reduction: Optional[str] = 'none') -> None:
+                 reduction: Optional[str] = 'mean') -> None:
         super(FocalLoss, self).__init__()
         self.alpha: float = alpha
         self.gamma: Optional[float] = gamma
@@ -74,10 +74,14 @@ class FocalLoss(nn.Module):
         input_soft = F.softmax(input, dim=1) + self.eps
 
         # create the labels one hot tensor
-        target_one_hot = []
+        if target.is_cuda:
+            target_one_hot = torch.Tensor().to('cuda')
+        else:
+            target_one_hot = torch.Tensor()
         for patch in target:
-          target_one_hot.append(F.one_hot(patch, num_classes=input.shape[1]))
-        print(f'target_one_hot shape: {target_one_hot.shape}')
+            patch_one_hot = torch.unsqueeze(torch.permute(F.one_hot(patch, num_classes=input.shape[1]),(2,0,1)), 0)
+            target_one_hot = torch.cat((target_one_hot,patch_one_hot),0)
+        # print(f'target_one_hot shape: {target_one_hot.shape}')
 
         # compute the actual focal loss
         weight = torch.pow(1. - input_soft, self.gamma)
@@ -108,7 +112,7 @@ def focal_loss(
         target: torch.Tensor,
         alpha: float,
         gamma: Optional[float] = 2.0,
-        reduction: Optional[str] = 'none') -> torch.Tensor:
+        reduction: Optional[str] = 'mean') -> torch.Tensor:
     r"""Function that computes Focal loss.
 
     See :class:`~torchgeometry.losses.FocalLoss` for details.
