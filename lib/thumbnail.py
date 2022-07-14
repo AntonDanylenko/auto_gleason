@@ -8,7 +8,7 @@ import torch
 
 def create_thumbnails(patch_width, patch_height):
     # Location of the training images
-    DATA_PATH = '../../../ganz/data/panda_dataset'
+    DATA_PATH = '../../ganz/data/panda_dataset'
 
     # mask directory
     mask_dir = f'{DATA_PATH}/train_label_masks'
@@ -40,6 +40,6 @@ def create_thumbnails(patch_width, patch_height):
             thumbnails[wsi_name] = thumbnail
 
         # Open json file and write dictionary to it
-        thumbnail_filename = "../data/thumbnails_" + str(patch_width) + "x" + str(patch_height) + ".p"
+        thumbnail_filename = "./data/thumbnails_" + str(patch_width) + "x" + str(patch_height) + ".p"
         with open(thumbnail_filename, 'wb') as fp:
             pickle.dump(thumbnails, fp)

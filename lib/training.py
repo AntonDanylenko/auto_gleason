@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 
 def training(all_train_img_names):
 	# Get mask thumbnail dictionary
-	thumbnail_filename = "../data/thumbnails_" + str(PATCH_WIDTH) + "x" + str(PATCH_HEIGHT) + ".p"
+	thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH) + "x" + str(PATCH_HEIGHT) + ".p"
 	if not os.path.exists(thumbnail_filename):
 		create_thumbnails(PATCH_WIDTH, PATCH_HEIGHT)
 	with open(thumbnail_filename, "rb") as fp:

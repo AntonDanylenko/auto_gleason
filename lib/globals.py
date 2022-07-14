@@ -21,13 +21,13 @@ VAL_SPLIT = 0.85
 TEST_SPLIT = 0.95
 
 # define the path to the base output directory
-BASE_OUTPUT = "../output"
+BASE_OUTPUT = "./output"
 # define the path to the output serialized model and model training plot
 MODEL_PATH = f"{BASE_OUTPUT}/unet_tgs_salt.pth"
 PLOT_PATH = f"{BASE_OUTPUT}/plot.png"
 
 # Location of the training images
-DATA_PATH = '../../../ganz/data/panda_dataset'
+DATA_PATH = '../../ganz/data/panda_dataset'
 
 # image and mask directories
 data_dir = f'{DATA_PATH}/train_images'
