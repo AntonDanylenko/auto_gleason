@@ -1,10 +1,10 @@
 from lib.dataset import *
-from lib.focal_loss import *
 from lib.globals import *
 from lib.unet import *
 
 import matplotlib.pyplot as plt
 import pickle
+import segmentation_models_pytorch as smp
 import time
 import torch
 from torch.utils.data import DataLoader
@@ -24,8 +24,9 @@ def testing(unet, test_img_names):
     # # determine if we will be pinning memory during data loading
     # PIN_MEMORY = True if DEVICE == "cuda" else False
 
-    # initialize loss function and optimizer
-    lossFunc = FocalLoss(0.25) #dice loss, focal loss
+    # initialize loss function
+    lossFunc = smp.losses.FocalLoss('multiclass') # focal loss
+    # lossFunc = smp.losses.DiceLoss('multiclass', classes=6) # dice loss
 
     # create the test dataset
     testDS = SegmentationDataset(wsi_names=test_img_names, mask_thumbnails=thumbnails_dict, pseudo_epoch_length=NUM_PSEUDO_EPOCHS)

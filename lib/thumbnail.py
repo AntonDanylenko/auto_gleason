@@ -1,3 +1,4 @@
+from re import T
 import numpy as np
 import openslide
 import os
@@ -22,6 +23,7 @@ def create_thumbnails(patch_width, patch_height):
     # Create thumbnails dictionary
     thumbnails = {}
     
+    count = 0
     # Get thumbnail of each wsi mask and add it as an array to the dictionary
     for wsi_name in wsi_names:
         mask_path = os.path.join(mask_dir, f'{wsi_name}_mask.tiff')
@@ -35,11 +37,14 @@ def create_thumbnails(patch_width, patch_height):
             # print(wsi_name)
             # print(arr.shape)
             # print(np.unique(arr))
+            print(count)
             
             thumbnail = torch.as_tensor(arr)
             thumbnails[wsi_name] = thumbnail
 
-        # Open json file and write dictionary to it
-        thumbnail_filename = "./data/thumbnails_" + str(patch_width) + "x" + str(patch_height) + ".p"
-        with open(thumbnail_filename, 'wb') as fp:
-            pickle.dump(thumbnails, fp)
+            count+=1
+
+    # Open json file and write dictionary to it
+    thumbnail_filename = "./data/thumbnails_" + str(patch_width) + "x" + str(patch_height) + ".p"
+    with open(thumbnail_filename, 'wb') as fp:
+        pickle.dump(thumbnails, fp)

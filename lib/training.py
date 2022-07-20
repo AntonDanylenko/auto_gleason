@@ -1,5 +1,5 @@
 from lib.dataset import *
-from lib.focal_loss import *
+# from lib.focal_loss import *
 from lib.globals import *
 from lib.thumbnail import *
 from lib.unet import *
@@ -8,6 +8,7 @@ import math
 import matplotlib.pyplot as plt
 import os
 import pickle
+import segmentation_models_pytorch as smp
 import time
 import torch
 from torch.optim import Adam
@@ -63,7 +64,8 @@ def training(all_train_img_names):
 	# initialize our UNet model
 	unet = UNet().to(DEVICE)
 	# initialize loss function and optimizer
-	lossFunc = FocalLoss(0.25) #dice loss, focal loss
+	lossFunc = smp.losses.FocalLoss('multiclass') # focal loss, intersection over union
+	# lossFunc = smp.losses.DiceLoss('multiclass', classes=6) # dice loss
 	# lossFunc = BCEWithLogitsLoss()
 	opt = Adam(unet.parameters(), lr=INIT_LR)
 	# calculate steps per epoch for training and validation set

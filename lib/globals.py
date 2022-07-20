@@ -7,9 +7,9 @@ NUM_CLASSES = 6
 NUM_LEVELS = 3
 # initialize learning rate, number of epochs to train for, and the batch size
 INIT_LR = 0.001
-NUM_EPOCHS = 40
+NUM_EPOCHS = 50
 BATCH_SIZE = 32
-NUM_PSEUDO_EPOCHS = 32
+NUM_PSEUDO_EPOCHS = 1024
 # define the input image dimensions
 PATCH_WIDTH = 256
 PATCH_HEIGHT = 256
