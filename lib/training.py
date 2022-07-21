@@ -23,9 +23,9 @@ def training(all_train_img_names):
 	writer = SummaryWriter()
 
 	# Get mask thumbnail dictionary
-	thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH) + "x" + str(PATCH_HEIGHT) + ".p"
+	thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH*3) + "x" + str(PATCH_HEIGHT*3) + ".p"
 	if not os.path.exists(thumbnail_filename):
-		create_thumbnails(PATCH_WIDTH, PATCH_HEIGHT)
+		create_thumbnails(PATCH_WIDTH*3, PATCH_HEIGHT*3)
 	with open(thumbnail_filename, "rb") as fp:
 		thumbnails_dict = pickle.load(fp)
 

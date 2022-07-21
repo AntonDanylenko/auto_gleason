@@ -71,17 +71,15 @@ class SegmentationDataset(Dataset):
 
       # Select random file, it's mask thumbnail, and get all non-empty coordinates
       filename = random.choice(self.wsi_names, size=1)[0]
-      # mask_slide = self.slide_dict[filename]['mask']
-      width, height = self.slide_dict[filename]['size']
       mask_thumbnail = self.mask_thumbnails[filename]
-      indices = np.transpose(np.where(mask_thumbnail>0))
+      indices = np.transpose(np.where(mask_thumbnail>1))
       # print(indices.size)
       while (indices.size==0):
         filename = random.choice(self.wsi_names, size=1)[0]
-        # mask_slide = self.slide_dict[filename]['mask']
-        width, height = self.slide_dict[filename]['size']
         mask_thumbnail = self.mask_thumbnails[filename]
-        indices = np.transpose(np.where(mask_thumbnail>0))
+        indices = np.transpose(np.where(mask_thumbnail>1))
+      # mask_slide = self.slide_dict[filename]['mask']
+      width, height = self.slide_dict[filename]['size']
       # print(indices.size)
       # plt.figure(figsize=(20,20))
       # plt.imshow(mask_thumbnail)
@@ -93,17 +91,18 @@ class SegmentationDataset(Dataset):
       # print(mask_thumbnail[coord[1]][coord[0]])
 
       # Scale coord to wsi size and add a little randomness
-      coord[0] = coord[0]*PATCH_WIDTH + random.randint(low=-PATCH_WIDTH//8,
+      coord[0] = coord[0]*PATCH_WIDTH - PATCH_WIDTH//3 + random.randint(low=-PATCH_WIDTH//8,
                                                         high=PATCH_WIDTH//8)
       if coord[0]<0: coord[0]=0
       if coord[0]>width-PATCH_WIDTH: coord[0]=width-PATCH_WIDTH
-      coord[1] = coord[1]*PATCH_HEIGHT + random.randint(low=-PATCH_HEIGHT//8,
+      coord[1] = coord[1]*PATCH_HEIGHT - PATCH_HEIGHT//3 + random.randint(low=-PATCH_HEIGHT//8,
                                                         high=PATCH_HEIGHT//8)
       if coord[1]<0: coord[1]=0
       if coord[1]>height-PATCH_HEIGHT: coord[1]=height-PATCH_HEIGHT
 
-      # coord[0] = coord[0]*PATCH_WIDTH
-      # coord[1] = coord[1]*PATCH_HEIGHT
+      # # Scaling coordinate with no randomness added
+      # coord[0] = coord[0]*PATCH_WIDTH - PATCH_WIDTH//3
+      # coord[1] = coord[1]*PATCH_HEIGHT - PATCH_HEIGHT//3
 
       # print("coord: " + str(coord))
       # print("width: " + str(width) + ", height: " + str(height))
