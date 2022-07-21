@@ -91,11 +91,11 @@ class SegmentationDataset(Dataset):
       # print(mask_thumbnail[coord[1]][coord[0]])
 
       # Scale coord to wsi size and add a little randomness
-      coord[0] = coord[0]*PATCH_WIDTH - PATCH_WIDTH//3 + random.randint(low=-PATCH_WIDTH//8,
+      coord[0] = (coord[0]-1)*PATCH_WIDTH//3 + random.randint(low=-PATCH_WIDTH//8,
                                                         high=PATCH_WIDTH//8)
       if coord[0]<0: coord[0]=0
       if coord[0]>width-PATCH_WIDTH: coord[0]=width-PATCH_WIDTH
-      coord[1] = coord[1]*PATCH_HEIGHT - PATCH_HEIGHT//3 + random.randint(low=-PATCH_HEIGHT//8,
+      coord[1] = (coord[1]-1)*PATCH_HEIGHT//3 + random.randint(low=-PATCH_HEIGHT//8,
                                                         high=PATCH_HEIGHT//8)
       if coord[1]<0: coord[1]=0
       if coord[1]>height-PATCH_HEIGHT: coord[1]=height-PATCH_HEIGHT

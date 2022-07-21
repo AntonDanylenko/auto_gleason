@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader
 
 def testing(unet, test_img_names):
     # Get mask thumbnail dictionary
-    thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH*3) + "x" + str(PATCH_HEIGHT*3) + ".p"
+    thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH//3) + "x" + str(PATCH_HEIGHT//3) + ".p"
     with open(thumbnail_filename, "rb") as fp:
         thumbnails_dict = pickle.load(fp)
 
