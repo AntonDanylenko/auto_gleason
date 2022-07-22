@@ -56,7 +56,7 @@ def testing(unet, test_img_names):
             y = y.squeeze().type(dtype=torch.long)
             totalTestLoss += lossFunc(pred, y)
             for i in range(BATCH_SIZE):
-                if random.randint(0,9)==0:
+                if random.randint(0,99)==0:
                     all_figure, all_ax = plt.subplots(nrows=1, ncols=3, figsize=(20, 20))
                     all_ax[0].imshow(torch.as_tensor(x[i].cpu().detach().numpy()).permute(1, 2, 0), cmap=cmap, interpolation='nearest', vmin=0, vmax=5)
                     realMask = y[i].cpu().detach().numpy()
