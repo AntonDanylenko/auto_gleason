@@ -10,15 +10,19 @@ def load():
     data = pd.read_csv(f'{DATA_PATH}/train.csv').set_index('image_id')
     # test = pd.read_csv(f'{DATA_PATH}/test.csv').set_index('image_id')
     # submission = pd.read_csv(f'{DATA_PATH}/sample_submission.csv')
+    # print(len(data))
 
     # Get list of flawed slides to remove
     sus_cases = pd.read_csv("data/suspicious_test_cases.csv").set_index("image_id")
+    # print(len(sus_cases))
 
     # for img_name in list(sus_cases.index):
     #   data.drop(img_name)
+    # print(len(data))
 
     # Remove all flawed slides from data
-    data.drop(list(sus_cases.index))
+    data = data.drop(list(sus_cases.index))
+    # print(len(data))
 
     # # Take only radboud rows
     # radboud = data.loc[data["data_provider"]=="radboud"]

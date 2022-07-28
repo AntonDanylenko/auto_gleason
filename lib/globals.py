@@ -9,11 +9,11 @@ NUM_LEVELS = 3
 # initialize learning rate, number of epochs to train for, and the batch size
 INIT_LR = 0.001
 NUM_EPOCHS = 50
-BATCH_SIZE = 32
-NUM_PSEUDO_EPOCHS = 1024
+BATCH_SIZE = 8
+NUM_PSEUDO_EPOCHS = 256
 # define the input image dimensions
-PATCH_WIDTH = 256
-PATCH_HEIGHT = 256
+PATCH_WIDTH = 1024
+PATCH_HEIGHT = 1024
 # define translation from 0 to min gleason score
 GLEASON_TRANSLATION = 3
 
@@ -38,4 +38,4 @@ mask_dir = f'{DATA_PATH}/train_label_masks'
 
 # color maps for printing masks
 cmap = matplotlib.colors.ListedColormap(['black', 'gray', 'green', 'yellow', 'orange', 'red'])
-merged_cmap = matplotlib.colors.ListedColormap(['black', 'green', 'red'])
+merged_cmap = matplotlib.colors.ListedColormap(['black', 'gray', 'red'])

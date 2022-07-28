@@ -40,8 +40,7 @@ class MergedDataset(Dataset):
         slide_dict[wsi_name]['slide'] = openslide.OpenSlide(slide_path)
         slide_dict[wsi_name]['mask'] = openslide.OpenSlide(mask_path)
         slide_dict[wsi_name]['size'] = slide_dict[wsi_name]['slide'].dimensions
-        print("provider: " + data[wsi_name]['data_provider'])
-        slide_dict[wsi_name]['provider'] = data[wsi_name]['data_provider']
+        slide_dict[wsi_name]['provider'] = data.loc[wsi_name, 'data_provider']
     return slide_dict
 
   def _sample_coord_list(self):
@@ -62,49 +61,49 @@ class MergedDataset(Dataset):
     filenames = []
     coords = []
 
-      for pseudo_epoch_i in range(self.pseudo_epoch_length):
-        # Select random file, it's mask thumbnail, and get all non-empty coordinates
+    for pseudo_epoch_i in range(self.pseudo_epoch_length):
+      # Select random file, it's mask thumbnail, and get all non-empty coordinates
+      filename = random.choice(self.wsi_names, size=1)[0]
+      mask_thumbnail = self.mask_thumbnails[filename]
+      indices = np.transpose(np.where(mask_thumbnail>1))
+      # print(indices.size)
+      # resample_count = 1
+      while (indices.size==0):
+        # print(f"resample_count: {resample_count}")
+        # if resample_count==1000:
+        #   plt.figure(figsize=(10,10))
+        #   plt.imshow(mask_thumbnail, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
+        #   plt.show()
         filename = random.choice(self.wsi_names, size=1)[0]
         mask_thumbnail = self.mask_thumbnails[filename]
-        indices = np.transpose(np.where(mask_thumbnail>0))
-        # print(indices.size)
-        # resample_count = 1
-        # while (indices.size==0):
-        #   # print(f"resample_count: {resample_count}")
-        #   # if resample_count==1000:
-        #   #   plt.figure(figsize=(10,10))
-        #   #   plt.imshow(mask_thumbnail, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
-        #   #   plt.show()
-        #   filename = random.choice(self.wsi_names[group_i], size=1)[0]
-        #   mask_thumbnail = self.mask_thumbnails[filename]
-        #   indices = np.transpose(np.where(mask_thumbnail==(group_i+GLEASON_TRANSLATION)))
-        #   resample_count+=1
+        indices = np.transpose(np.where(mask_thumbnail>1))
+        # resample_count+=1
 
-        width, height = self.slide_dict[filename]['size']
+      width, height = self.slide_dict[filename]['size']
 
-        # Pick random index and invert coordinates from (y,x) to (x,y)
-        rand_index = random.randint(len(indices))
-        coord = indices[rand_index][::-1]
+      # Pick random index and invert coordinates from (y,x) to (x,y)
+      rand_index = random.randint(len(indices))
+      coord = indices[rand_index][::-1]
 
-        # Scale coord to wsi size and add a little randomness
-        coord[0] = (coord[0]-1)*PATCH_WIDTH//3 + random.randint(low=-PATCH_WIDTH//8,
-                                                          high=PATCH_WIDTH//8)
-        if coord[0]<0: coord[0]=0
-        if coord[0]>width-PATCH_WIDTH: coord[0]=width-PATCH_WIDTH
-        coord[1] = (coord[1]-1)*PATCH_HEIGHT//3 + random.randint(low=-PATCH_HEIGHT//8,
-                                                          high=PATCH_HEIGHT//8)
-        if coord[1]<0: coord[1]=0
-        if coord[1]>height-PATCH_HEIGHT: coord[1]=height-PATCH_HEIGHT
+      # Scale coord to wsi size and add a little randomness
+      coord[0] = (coord[0]-1)*PATCH_WIDTH//3 + random.randint(low=-PATCH_WIDTH//8,
+                                                        high=PATCH_WIDTH//8)
+      if coord[0]<0: coord[0]=0
+      if coord[0]>width-PATCH_WIDTH: coord[0]=width-PATCH_WIDTH
+      coord[1] = (coord[1]-1)*PATCH_HEIGHT//3 + random.randint(low=-PATCH_HEIGHT//8,
+                                                        high=PATCH_HEIGHT//8)
+      if coord[1]<0: coord[1]=0
+      if coord[1]>height-PATCH_HEIGHT: coord[1]=height-PATCH_HEIGHT
 
-        # # Scaling coordinate with no randomness added
-        # coord[0] = coord[0]*PATCH_WIDTH - PATCH_WIDTH//3
-        # coord[1] = coord[1]*PATCH_HEIGHT - PATCH_HEIGHT//3
+      # # Scaling coordinate with no randomness added
+      # coord[0] = coord[0]*PATCH_WIDTH - PATCH_WIDTH//3
+      # coord[1] = coord[1]*PATCH_HEIGHT - PATCH_HEIGHT//3
 
-        # print("coord: " + str(coord))
-        # print("width: " + str(width) + ", height: " + str(height))
+      # print("coord: " + str(coord))
+      # print("width: " + str(width) + ", height: " + str(height))
 
-        filenames.append(filename)
-        coords.append(coord)
+      filenames.append(filename)
+      coords.append(coord)
     return filenames, coords
 
   # def _sample_random_coords(self):
@@ -138,10 +137,15 @@ class MergedDataset(Dataset):
     # mask = self.transformations(mask)
     # mask = torch.as_tensor(mask) #.permute(1, 2, 0)
 
+    # if np.amax(mask)>2:
+    #   print(np.amax(mask))
+    #   print(filename)
+    #   print(self.slide_dict[filename]["provider"])
+    
     # If slide from radboud merge epithelium and stroma, and all the gleason scores
-    if self.slide_dict[filename]=="radboud":
+    if self.slide_dict[filename]["provider"]=="radboud":
       mask[mask==2] = 1
-      mask[mask>3] = 2
+      mask[mask>2] = 2
 
     # # Split mask into binary masks for each class
     # channels = np.tile(mask, (NUM_CLASSES, 1, 1))
@@ -157,7 +161,7 @@ class MergedDataset(Dataset):
     slide = self.slide_dict[filename]['slide']
     patch = slide.read_region(coords, size=(PATCH_WIDTH, PATCH_HEIGHT), level=0).convert('RGB')
     mask_slide = self.slide_dict[filename]['mask']
-    mask_patch = mask_slide.read_region(coords, size=(PATCH_WIDTH, PATCH_HEIGHT), level=0).convert('RGB')
+    mask_patch = mask_slide.read_region(coords, size=(PATCH_WIDTH, PATCH_HEIGHT), level=0) #.convert('RGB')
     # print(mask_patch.size)
     # print(np.mean(mask_patch))
     # print(np.asarray(mask_patch, dtype=np.uint8))

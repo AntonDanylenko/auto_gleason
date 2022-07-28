@@ -90,7 +90,7 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 			# add the loss to the total training loss so far
 			totalTrainLoss += loss
 		
-		firstValImage = True
+		# firstValImage = True
 
 		# switch off autograd
 		with torch.no_grad():
@@ -110,7 +110,7 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 				# Calculate validation metric for each class
 				for batch_i in range(BATCH_SIZE):
 					predMask = torch.argmax(pred[batch_i], dim=0)
-					if firstValImage:
+					if batch_i==0:
 						# print(figure_count)
 						all_figure, all_ax = plt.subplots(nrows=1, ncols=3, figsize=(10, 10))
 						all_ax[0].imshow(torch.as_tensor(x[batch_i].cpu().detach().numpy()).permute(1, 2, 0))
@@ -122,7 +122,7 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 						all_figure.tight_layout()
 						writer.add_figure("Val PredMasks", all_figure, figure_count)
 						# writer.add_image("Val PredMasks", torch.unsqueeze(predMask,0).cpu().detach().numpy(), global_step=figure_count)
-						firstValImage = False
+						# firstValImage = False
 						figure_count+=1
 					# print(f"Num nonzeros in predMask: {torch.count_nonzero(predMask)}")
 					# print(f'predMask.shape: {predMask.shape}')
