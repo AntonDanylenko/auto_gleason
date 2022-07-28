@@ -16,37 +16,19 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 # from torch.nn import BCEWithLogitsLoss
+from tqdm import tqdm
 
 
 
-def training(all_train_img_names):
+def training(train_img_names, val_img_names, thumbnails_dict):
 	# TensorBoard summary writer instance
 	writer = SummaryWriter()
-
-	# Get mask thumbnail dictionary
-	thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH//3) + "x" + str(PATCH_HEIGHT//3) + ".p"
-	if not os.path.exists(thumbnail_filename):
-		create_thumbnails(PATCH_WIDTH//3, PATCH_HEIGHT//3)
-	with open(thumbnail_filename, "rb") as fp:
-		thumbnails_dict = pickle.load(fp)
 
 	# determine the device to be used for training and evaluation
 	DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 	# print(DEVICE)
 	# # determine if we will be pinning memory during data loading
 	# PIN_MEMORY = True if DEVICE == "cuda" else False
-
-	# partition the data into training and validation splits using 85% of
-	# the data for training and the remaining 15% for validation
-	split_size = math.floor(VAL_SPLIT*len(all_train_img_names))
-	split = torch.utils.data.random_split(all_train_img_names,
-										[split_size, len(all_train_img_names)-split_size], 
-										generator=torch.Generator().manual_seed(42))
-
-	# unpack the data split
-	(train_img_names, val_img_names) = split
-	train_img_names = list(train_img_names)
-	val_img_names = list(val_img_names)
 
 	# create the train and validation datasets
 	trainDS = SegmentationDataset(wsi_names=train_img_names, mask_thumbnails=thumbnails_dict, pseudo_epoch_length=NUM_PSEUDO_EPOCHS)
@@ -71,8 +53,9 @@ def training(all_train_img_names):
 	trainSteps = len(trainDS) // BATCH_SIZE
 	valSteps = len(valDS) // BATCH_SIZE
 	
+	# Counts for tensorboard figures
 	figure_count = 0
-	zero_count = 0
+	# zero_count = 0
 
 	# loop over epochs
 	print("[INFO] training the network...")
@@ -107,6 +90,8 @@ def training(all_train_img_names):
 			# add the loss to the total training loss so far
 			totalTrainLoss += loss
 		
+		firstValImage = True
+
 		# switch off autograd
 		with torch.no_grad():
 			# set the model in evaluation mode
@@ -125,7 +110,8 @@ def training(all_train_img_names):
 				# Calculate validation metric for each class
 				for batch_i in range(BATCH_SIZE):
 					predMask = torch.argmax(pred[batch_i], dim=0)
-					if batch_i==0:
+					if firstValImage:
+						print(figure_count)
 						all_figure, all_ax = plt.subplots(nrows=1, ncols=3, figsize=(10, 10))
 						all_ax[0].imshow(torch.as_tensor(x[batch_i].cpu().detach().numpy()).permute(1, 2, 0), cmap=cmap, interpolation='nearest', vmin=0, vmax=5)
 						realMask = y[batch_i].cpu().detach().numpy()
@@ -136,6 +122,7 @@ def training(all_train_img_names):
 						all_figure.tight_layout()
 						writer.add_figure("Val PredMasks", all_figure, figure_count)
 						# writer.add_image("Val PredMasks", torch.unsqueeze(predMask,0).cpu().detach().numpy(), global_step=figure_count)
+						firstValImage = False
 						figure_count+=1
 					# print(f"Num nonzeros in predMask: {torch.count_nonzero(predMask)}")
 					# print(f'predMask.shape: {predMask.shape}')
@@ -170,41 +157,46 @@ def training(all_train_img_names):
 							totalValMetric[class_i] += (1.0 - diceLoss)
 							metricCounts[class_i] += 1
 
-							if class_i==0:
-								all_figure, all_ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
-								realMask = y_split[class_i]
-								all_ax[0].imshow(realMask, cmap=cmap, interpolation='nearest', vmin=0, vmax=1)
-								# predMask = torch.argmax(pred[batch_i], dim=0)
-								predMask_np = pred_split[class_i]
-								all_ax[1].imshow(predMask_np, cmap=cmap, interpolation='nearest', vmin=0, vmax=1)
-								all_figure.tight_layout()
-								writer.add_figure("Val PredMasks Class 0", all_figure, zero_count)
-								zero_count+=1
+							# if class_i==0:
+							# 	all_figure, all_ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
+							# 	realMask = y_split[class_i]
+							# 	all_ax[0].imshow(realMask, cmap=cmap, interpolation='nearest', vmin=0, vmax=1)
+							# 	# predMask = torch.argmax(pred[batch_i], dim=0)
+							# 	predMask_np = pred_split[class_i]
+							# 	all_ax[1].imshow(predMask_np, cmap=cmap, interpolation='nearest', vmin=0, vmax=1)
+							# 	all_figure.tight_layout()
+							# 	writer.add_figure("Val PredMasks Class 0", all_figure, zero_count)
+							# 	zero_count+=1
 
-		# calculate the average training and validation loss
+		# Resample the pseudo epoch and refresh data loader
+		trainDS.resample_pseudo_epoch()
+		trainLoader = DataLoader(trainDS, shuffle=True,
+								batch_size=BATCH_SIZE, num_workers=4)
+
+		# Calculate the average training and validation loss
 		avgTrainLoss = totalTrainLoss / trainSteps
 		avgValLoss = totalValLoss / valSteps
 		avgValMetric = [0]*NUM_CLASSES
 		for ii in range(NUM_CLASSES):
 			if metricCounts[ii]!=0:
 				avgValMetric[ii] = totalValMetric[ii] / metricCounts[ii]
-		# update our training history
+		# Update the training history
 		writer.add_scalar("Loss/train", avgTrainLoss.cpu().detach().numpy(), e)
 		writer.add_scalar("Loss/val", avgValLoss.cpu().detach().numpy(), e)
 		for ii in range(NUM_CLASSES):
 			writer.add_scalar(f"Metric/val{ii}", avgValMetric[ii], e)
-		# print the model training and validation information
+		# Print the model training and validation information
 		print("[INFO] EPOCH: {}/{}".format(e + 1, NUM_EPOCHS))
 		print("Train loss: {:.6f}, Val loss: {:.4f}".format(avgTrainLoss, avgValLoss))
 		for ii in range(NUM_CLASSES):
 			print("Val metric for class {}: {:.6f}".format(ii, avgValMetric[ii]))
 
-	# display the total time needed to perform the training
+	# Display the total time needed to perform the training
 	endTime = time.time()
 	print("[INFO] total time taken to train the model: {:.2f}s".format(
 		endTime - startTime))
 
-	# serialize the model to disk
+	# Serialize the model to disk
 	# torch.save(unet, MODEL_PATH)
 
 	writer.flush()

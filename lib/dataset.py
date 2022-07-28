@@ -1,8 +1,10 @@
 from .globals import *
+import matplotlib.pyplot as plt
 import numpy as np
 import numpy.random as random
 import openslide
 import os
+import time
 from torch.utils.data import Dataset
 from torchvision import transforms
 from tqdm import tqdm
@@ -14,10 +16,11 @@ class SegmentationDataset(Dataset):
               wsi_names, 
               mask_thumbnails,
               pseudo_epoch_length: int = 1024, 
-              transformations = None):
+              transformations = transforms.Compose([transforms.ToTensor()])):
     self.wsi_names = wsi_names
     self.mask_thumbnails = mask_thumbnails
     self.pseudo_epoch_length = pseudo_epoch_length
+    self.transformations = transformations
 
     # opens all slides and stores them in slide_dict
     self.slide_dict = self.make_slide_dict(wsi_names=self.wsi_names)
@@ -25,29 +28,27 @@ class SegmentationDataset(Dataset):
     # samples a list of patch coordinates and annotations 
     self.sample_dict = self.sample_coord_list(pseudo_epoch_length=self.pseudo_epoch_length)
 
-    if transformations is not None:
-      self.transformations = transformations
-    else:
-      self.transformations = transforms.Compose([transforms.ToTensor()])
-
   def make_slide_dict(self, wsi_names):
     slide_dict = {}
     bad_samples = []
-    for wsi_name in tqdm(wsi_names, total=len(wsi_names), desc='Make Slide Dict'):
-      if wsi_name not in slide_dict:
-        slide_path = os.path.join(data_dir, f'{wsi_name}.tiff')
-        mask_path = os.path.join(mask_dir, f'{wsi_name}_mask.tiff')
-        if os.path.exists(slide_path) and os.path.exists(mask_path):
-          slide_dict[wsi_name] = {}
-          slide_dict[wsi_name]['slide'] = openslide.OpenSlide(slide_path)
-          slide_dict[wsi_name]['mask'] = openslide.OpenSlide(mask_path)
-          slide_dict[wsi_name]['size'] = slide_dict[wsi_name]['slide'].dimensions
-        else:
-          bad_samples.append(wsi_name)
+    for (group_i, gleason_group) in enumerate(wsi_names):
+      for wsi_name in tqdm(gleason_group, total=len(gleason_group), desc=f'Make Slide Dict from Group {group_i}'):
+        if wsi_name not in slide_dict:
+          slide_path = os.path.join(data_dir, f'{wsi_name}.tiff')
+          mask_path = os.path.join(mask_dir, f'{wsi_name}_mask.tiff')
+          if os.path.exists(slide_path) and os.path.exists(mask_path):
+            slide_dict[wsi_name] = {}
+            slide_dict[wsi_name]['slide'] = openslide.OpenSlide(slide_path)
+            slide_dict[wsi_name]['mask'] = openslide.OpenSlide(mask_path)
+            slide_dict[wsi_name]['size'] = slide_dict[wsi_name]['slide'].dimensions
+          else:
+            bad_samples.append(wsi_name)
     # print(bad_samples)
     # print(len(bad_samples))
     for wsi_name in bad_samples:
-      self.wsi_names.remove(wsi_name)
+      for group_i in range(len(wsi_names)):
+        if wsi_name in wsi_names[group_i]:
+          self.wsi_names[group_i].remove(wsi_name)
     return slide_dict
 
   def sample_coord_list(self, pseudo_epoch_length):
@@ -67,48 +68,72 @@ class SegmentationDataset(Dataset):
   def _sample_nonempty_coords(self, pseudo_epoch_length):
     filenames = []
     coords = []
-    for i in range(pseudo_epoch_length):
 
-      # Select random file, it's mask thumbnail, and get all non-empty coordinates
-      filename = random.choice(self.wsi_names, size=1)[0]
-      mask_thumbnail = self.mask_thumbnails[filename]
-      indices = np.transpose(np.where(mask_thumbnail>1))
-      # print(indices.size)
-      while (indices.size==0):
-        filename = random.choice(self.wsi_names, size=1)[0]
+    num_gleason_groups = len(self.wsi_names)
+    for group_i in range(num_gleason_groups):
+      num_samples_in_group = (pseudo_epoch_length+group_i)//num_gleason_groups
+      for i in range(num_samples_in_group):
+        # Select random file, it's mask thumbnail, and get all non-empty coordinates
+        filename = random.choice(self.wsi_names[group_i], size=1)[0]
         mask_thumbnail = self.mask_thumbnails[filename]
-        indices = np.transpose(np.where(mask_thumbnail>1))
-      # mask_slide = self.slide_dict[filename]['mask']
-      width, height = self.slide_dict[filename]['size']
-      # print(indices.size)
-      # plt.figure(figsize=(20,20))
-      # plt.imshow(mask_thumbnail)
-      # plt.show()
+        indices = np.transpose(np.where(mask_thumbnail==(group_i+GLEASON_TRANSLATION)))
+        # print(indices.size)
+        resample_count = 1
+        while (indices.size==0):
+          # print(group_i+GLEASON_TRANSLATION)
+          # print(f"resample_count: {resample_count}")
+          # if resample_count==1000:
+          #   print(group_i+GLEASON_TRANSLATION)
+          #   plt.figure(figsize=(20,20))
+          #   plt.imshow(mask_thumbnail, cmap=cmap, interpolation='nearest', vmin=0, vmax=5)
+          #   plt.show()
+          filename = random.choice(self.wsi_names[group_i], size=1)[0]
+          mask_thumbnail = self.mask_thumbnails[filename]
+          indices = np.transpose(np.where(mask_thumbnail==(group_i+GLEASON_TRANSLATION)))
+          resample_count+=1
+        # if resample_count>1000:
+        #     print(group_i+GLEASON_TRANSLATION)
+        #     print(resample_count)
+        #     plt.figure(figsize=(10,10))
+        #     plt.imshow(mask_thumbnail, cmap=cmap, interpolation='nearest', vmin=0, vmax=5)
+        #     plt.show()
+        #     mask_slide = self.slide_dict[filename]['mask']
+        #     full_mask = mask_slide.read_region((0,0), mask_slide.level_count - 1, mask_slide.level_dimensions[-1])
+        #     full_mask = np.asarray(full_mask, dtype=np.uint8)[:,:,0]
+        #     plt.figure(figsize=(10,10))
+        #     plt.imshow(full_mask, cmap=cmap, interpolation='nearest', vmin=0, vmax=5)
+        #     plt.show()
+        #     time.sleep(10)
 
-      # Pick random index and invert coordinates from (y,x) to (x,y)
-      rand_index = random.randint(len(indices))
-      coord = indices[rand_index][::-1]
-      # print(mask_thumbnail[coord[1]][coord[0]])
 
-      # Scale coord to wsi size and add a little randomness
-      coord[0] = (coord[0]-1)*PATCH_WIDTH//3 + random.randint(low=-PATCH_WIDTH//8,
-                                                        high=PATCH_WIDTH//8)
-      if coord[0]<0: coord[0]=0
-      if coord[0]>width-PATCH_WIDTH: coord[0]=width-PATCH_WIDTH
-      coord[1] = (coord[1]-1)*PATCH_HEIGHT//3 + random.randint(low=-PATCH_HEIGHT//8,
-                                                        high=PATCH_HEIGHT//8)
-      if coord[1]<0: coord[1]=0
-      if coord[1]>height-PATCH_HEIGHT: coord[1]=height-PATCH_HEIGHT
+        width, height = self.slide_dict[filename]['size']
+        # plt.figure(figsize=(10,10))
+        # plt.imshow(mask_thumbnail)
+        # plt.show()
 
-      # # Scaling coordinate with no randomness added
-      # coord[0] = coord[0]*PATCH_WIDTH - PATCH_WIDTH//3
-      # coord[1] = coord[1]*PATCH_HEIGHT - PATCH_HEIGHT//3
+        # Pick random index and invert coordinates from (y,x) to (x,y)
+        rand_index = random.randint(len(indices))
+        coord = indices[rand_index][::-1]
 
-      # print("coord: " + str(coord))
-      # print("width: " + str(width) + ", height: " + str(height))
+        # Scale coord to wsi size and add a little randomness
+        coord[0] = (coord[0]-1)*PATCH_WIDTH//3 + random.randint(low=-PATCH_WIDTH//8,
+                                                          high=PATCH_WIDTH//8)
+        if coord[0]<0: coord[0]=0
+        if coord[0]>width-PATCH_WIDTH: coord[0]=width-PATCH_WIDTH
+        coord[1] = (coord[1]-1)*PATCH_HEIGHT//3 + random.randint(low=-PATCH_HEIGHT//8,
+                                                          high=PATCH_HEIGHT//8)
+        if coord[1]<0: coord[1]=0
+        if coord[1]>height-PATCH_HEIGHT: coord[1]=height-PATCH_HEIGHT
 
-      filenames.append(filename)
-      coords.append(coord)
+        # # Scaling coordinate with no randomness added
+        # coord[0] = coord[0]*PATCH_WIDTH - PATCH_WIDTH//3
+        # coord[1] = coord[1]*PATCH_HEIGHT - PATCH_HEIGHT//3
+
+        # print("coord: " + str(coord))
+        # print("width: " + str(width) + ", height: " + str(height))
+
+        filenames.append(filename)
+        coords.append(coord)
     return filenames, coords
 
   # def _sample_random_coords(self, pseudo_epoch_length):
@@ -121,6 +146,10 @@ class SegmentationDataset(Dataset):
   #                             size=2))
   #     coords.append(xy)
   #   return filenames, coords
+
+  def resample_pseudo_epoch(self):
+    # resamples a list of patch coordinates and annotations 
+    self.sample_dict = self.sample_coord_list(pseudo_epoch_length=self.pseudo_epoch_length)
 
   def __len__(self):
     # return the number of total samples

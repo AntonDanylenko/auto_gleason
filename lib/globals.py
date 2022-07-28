@@ -8,11 +8,13 @@ NUM_LEVELS = 3
 # initialize learning rate, number of epochs to train for, and the batch size
 INIT_LR = 0.001
 NUM_EPOCHS = 50
-BATCH_SIZE = 32
-NUM_PSEUDO_EPOCHS = 1024
+BATCH_SIZE = 8
+NUM_PSEUDO_EPOCHS = 256
 # define the input image dimensions
-PATCH_WIDTH = 256
-PATCH_HEIGHT = 256
+PATCH_WIDTH = 1024
+PATCH_HEIGHT = 1024
+# define translation from 0 to min gleason score
+GLEASON_TRANSLATION = 3
 
 # define the validation split
 VAL_SPLIT = 0.85

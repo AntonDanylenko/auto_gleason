@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import pickle
 import torch
+from tqdm import tqdm
 
 
 def create_thumbnails(patch_width, patch_height):
@@ -25,7 +26,7 @@ def create_thumbnails(patch_width, patch_height):
     
     count = 0
     # Get thumbnail of each wsi mask and add it as an array to the dictionary
-    for wsi_name in wsi_names:
+    for wsi_name in tqdm(wsi_names):
         mask_path = os.path.join(mask_dir, f'{wsi_name}_mask.tiff')
         if os.path.exists(mask_path):
             mask = openslide.OpenSlide(mask_path)
@@ -37,7 +38,7 @@ def create_thumbnails(patch_width, patch_height):
             # print(wsi_name)
             # print(arr.shape)
             # print(np.unique(arr))
-            print(count)
+            # print(count)
             
             thumbnail = torch.as_tensor(arr)
             thumbnails[wsi_name] = thumbnail
