@@ -11,8 +11,12 @@ import torch
 from tqdm import tqdm
 
 
-def create_segmented_patches(unet):
-  # determine the device to be used for training and evaluation
+def create_segmented_patches():
+  # Load our model from disk and flash it to the current device
+  print("[INFO] load up model...")
+  unet = torch.load(MODEL_PATH).to(DEVICE)
+
+  # Determine the device to be used for training and evaluation
   DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
   # Location of wsi metadata
