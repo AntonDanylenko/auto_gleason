@@ -1,15 +1,20 @@
 from lib.globals import *
+from lib.thumbnail import create_thumbnails
 
 import matplotlib.pyplot as plt
 import numpy as np
 import openslide
 import os
 import pandas as pd
+import pickle
 import torch
 from tqdm import tqdm
 
 
 def create_segmented_patches(unet):
+  # determine the device to be used for training and evaluation
+  DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
   # Location of wsi metadata
   data = pd.read_csv(f'{DATA_PATH}/train.csv').set_index('image_id')
 
