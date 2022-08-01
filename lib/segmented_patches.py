@@ -8,16 +8,21 @@ import os
 import pandas as pd
 import pickle
 import torch
+from torchvision import transforms
 from tqdm import tqdm
 
 
 def create_segmented_patches():
+  # Determine the device to be used for training and evaluation
+  DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+
   # Load our model from disk and flash it to the current device
   print("[INFO] load up model...")
   unet = torch.load(MODEL_PATH).to(DEVICE)
+  unet.eval()
 
-  # Determine the device to be used for training and evaluation
-  DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+  # Initialize transform for image
+  transformations = transforms.Compose([transforms.ToTensor()])
 
   # Location of wsi metadata
   data = pd.read_csv(f'{DATA_PATH}/train.csv').set_index('image_id')
@@ -27,6 +32,9 @@ def create_segmented_patches():
 
   # Remove all flawed slides from data
   data = data.drop(list(sus_cases.index))
+
+  # Get list of only wsi names
+  wsi_names = list(data.index)
 
   # Get mask thumbnail dictionary
   thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH) + "x" + str(PATCH_HEIGHT) + ".p"
@@ -39,9 +47,11 @@ def create_segmented_patches():
   segmented_patches = {}
 
   # Segment cancerous regions of each wsi and save as patches
-  for wsi_name in tqdm(data[:3]):
+  for wsi_name in tqdm(wsi_names[:3]):
+    print(wsi_name)
     # Get slide and mask thumbnail
     slide_path = os.path.join(data_dir, f'{wsi_name}.tiff')
+    # print(slide_path)
     slide = openslide.OpenSlide(slide_path)
     width, height = slide.dimensions
     mask_thumbnail = thumbnails_dict[wsi_name]
@@ -51,16 +61,18 @@ def create_segmented_patches():
     for index in indices:
       # Patch info dictionary
       patch_info = {}
-      # Get scaled coordinates and read patch
-      coords = [index[0]*PATCH_WIDTH, index[1]*PATCH_HEIGHT]
+      # Get inverted and scaled coordinates and read patch
+      coords = [index[1]*PATCH_HEIGHT, index[0]*PATCH_WIDTH]
       print(coords)
       patch = slide.read_region(coords, size=(PATCH_WIDTH, PATCH_HEIGHT), level=0).convert('RGB')
-      patch = np.asarray(patch, dtype=np.uint8).to(DEVICE)
+      patch = np.asarray(patch, dtype=np.uint8)
+      patch = transformations(patch).to(DEVICE)
       # Get segemented mask for patch
-      pred = unet(patch) #.squeeze()
+      pred = unet(torch.unsqueeze(patch,0)).squeeze()
       predMask = torch.argmax(pred, dim=0)
       predMask_np = predMask.cpu().detach().numpy()
-      plt.figure(figsize=(10,10))
-      plt.imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
+      f, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
+      ax[0].imshow(torch.as_tensor(patch.cpu().detach().numpy()).permute(1, 2, 0))
+      ax[1].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
+      f.tight_layout()
       plt.show()
-    print("------------")
