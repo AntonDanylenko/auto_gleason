@@ -96,8 +96,12 @@ class MergedDataset(Dataset):
       if coord[1]>height-PATCH_HEIGHT: coord[1]=height-PATCH_HEIGHT
 
       # # Scaling coordinate with no randomness added
-      # coord[0] = coord[0]*PATCH_WIDTH - PATCH_WIDTH//3
-      # coord[1] = coord[1]*PATCH_HEIGHT - PATCH_HEIGHT//3
+      # coord[0] = (coord[0]-1)*PATCH_WIDTH//3
+      # coord[1] = (coord[1]-1)*PATCH_HEIGHT//3
+      # if coord[0]<0: coord[0]=0
+      # if coord[0]>width-PATCH_WIDTH: coord[0]=width-PATCH_WIDTH
+      # if coord[1]<0: coord[1]=0
+      # if coord[1]>height-PATCH_HEIGHT: coord[1]=height-PATCH_HEIGHT
 
       # print("coord: " + str(coord))
       # print("width: " + str(width) + ", height: " + str(height))

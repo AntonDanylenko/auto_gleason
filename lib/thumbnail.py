@@ -12,7 +12,7 @@ def create_thumbnails(patch_width, patch_height):
     # Location of the training images
     DATA_PATH = '../../ganz/data/panda_dataset'
 
-    # mask directory
+    # Mask directory
     mask_dir = f'{DATA_PATH}/train_label_masks'
 
     # Location of training labels

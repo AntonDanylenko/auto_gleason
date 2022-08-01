@@ -8,7 +8,6 @@ from lib.dice import *
 import math
 import matplotlib.pyplot as plt
 import os
-import pickle
 import segmentation_models_pytorch as smp
 import time
 import torch
