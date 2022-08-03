@@ -8,11 +8,16 @@ import os
 import pandas as pd
 import pickle
 import torch
+from torch.utils.tensorboard import SummaryWriter
 from torchvision import transforms
 from tqdm import tqdm
 
 
 def create_segmented_patches():
+  # TensorBoard summary writer instance
+  writer = SummaryWriter()
+  figure_count = 0
+
   # Determine the device to be used for training and evaluation
   DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -55,9 +60,10 @@ def create_segmented_patches():
     print(wsi_name)
     # Get slide and mask thumbnail
     slide_path = os.path.join(data_dir, f'{wsi_name}.tiff')
+    mask_path = os.path.join(mask_dir, f'{wsi_name}_mask.tiff')
     # print(slide_path)
     slide = openslide.OpenSlide(slide_path)
-    width, height = slide.dimensions
+    mask = openslide.OpenSlide(mask_path)
     mask_thumbnail = thumbnails_dict[wsi_name]
     # Get all pixels in thumbnail that are not 0
     indices = np.transpose(np.where(mask_thumbnail>0))
@@ -68,19 +74,25 @@ def create_segmented_patches():
       patch_info = {}
       # Get inverted and scaled coordinates and read patch
       coords = [index[1]*PATCH_HEIGHT, index[0]*PATCH_WIDTH]
-      print(coords)
+      # print(coords)
       patch = slide.read_region(coords, size=(PATCH_WIDTH, PATCH_HEIGHT), level=0).convert('RGB')
       patch = np.asarray(patch, dtype=np.uint8)
       patch = transformations(patch).to(DEVICE)
+      # Get true mask patch for comparison
+      mask_patch = mask.read_region(coords, size=(PATCH_WIDTH, PATCH_HEIGHT), level=0)
+      mask_patch = np.asarray(mask_patch, dtype=np.uint8)[:,:,0]
       # Get segemented mask for patch
       pred = unet(torch.unsqueeze(patch,0)).squeeze()
       predMask = torch.argmax(pred, dim=0)
       predMask_np = predMask.cpu().detach().numpy()
-      f, ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
+      f, ax = plt.subplots(nrows=1, ncols=3, figsize=(10, 10))
       ax[0].imshow(torch.as_tensor(patch.cpu().detach().numpy()).permute(1, 2, 0))
-      ax[1].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
+      ax[1].imshow(mask_patch, cmap=cmap, interpolation='nearest', vmin=0, vmax=5)
+      ax[2].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
       f.tight_layout()
-      plt.show()
+      # plt.show()
+      writer.add_figure("Segmented Patches PredMasks", f, figure_count)
+      figure_count+=1
       patch_info["coords"] = coords 
       patch_info["predMask"] = predMask_np 
       wsi_patches.append(patch_info)
@@ -90,3 +102,6 @@ def create_segmented_patches():
   segmented_patches_filename = "./data/segmented_patches_" + str(PATCH_WIDTH) + "x" + str(PATCH_HEIGHT) + ".p"
   with open(segmented_patches_filename, 'wb') as fp:
       pickle.dump(segmented_patches, fp)
+
+  writer.flush()
+  writer.close()

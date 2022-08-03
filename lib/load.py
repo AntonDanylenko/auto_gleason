@@ -24,8 +24,8 @@ def load():
     data = data.drop(list(sus_cases.index))
     # print(len(data))
 
-    # # Take only radboud rows
-    # radboud = data.loc[data["data_provider"]=="radboud"]
+    # Take only radboud rows
+    data = data.loc[data["data_provider"]=="radboud"]
 
     # # Take only karolinksa rows
     # karolinska = data.loc[data["data_provider"]=="karolinska"]

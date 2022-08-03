@@ -190,6 +190,9 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 		for ii in range(MERGED_NUM_CLASSES):
 			print("Val metric for class {}: {:.6f}".format(ii, avgValMetric[ii]))
 
+		if avgValMetric[2]>0.75 and sum(avgValMetric)/3>0.71:
+			break
+
 	# Display the total time needed to perform the training
 	endTime = time.time()
 	print("[INFO] total time taken to train the model: {:.2f}s".format(
