@@ -33,8 +33,12 @@ def create_segmented_patches():
   # Remove all flawed slides from data
   data = data.drop(list(sus_cases.index))
 
+  # Take only radboud rows
+  radboud = data.loc[data["data_provider"]=="radboud"]
+
   # Get list of only wsi names
-  wsi_names = list(data.index)
+  # wsi_names = list(data.index)
+  wsi_names = list(radboud.index)
 
   # Get mask thumbnail dictionary
   thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH) + "x" + str(PATCH_HEIGHT) + ".p"
@@ -47,7 +51,7 @@ def create_segmented_patches():
   segmented_patches = {}
 
   # Segment cancerous regions of each wsi and save as patches
-  for wsi_name in tqdm(wsi_names[:3]):
+  for wsi_name in tqdm(wsi_names[4:7]):
     print(wsi_name)
     # Get slide and mask thumbnail
     slide_path = os.path.join(data_dir, f'{wsi_name}.tiff')
@@ -58,6 +62,7 @@ def create_segmented_patches():
     # Get all pixels in thumbnail that are not 0
     indices = np.transpose(np.where(mask_thumbnail>0))
     # Get all non-empty patches and segment them
+    wsi_patches = []
     for index in indices:
       # Patch info dictionary
       patch_info = {}
@@ -76,3 +81,12 @@ def create_segmented_patches():
       ax[1].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
       f.tight_layout()
       plt.show()
+      patch_info["coords"] = coords 
+      patch_info["predMask"] = predMask_np 
+      wsi_patches.append(patch_info)
+    segmented_patches[wsi_name] = wsi_patches
+  
+  # Open json file and write dictionary to it
+  segmented_patches_filename = "./data/segmented_patches_" + str(PATCH_WIDTH) + "x" + str(PATCH_HEIGHT) + ".p"
+  with open(segmented_patches_filename, 'wb') as fp:
+      pickle.dump(segmented_patches, fp)
