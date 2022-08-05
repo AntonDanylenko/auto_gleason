@@ -24,11 +24,11 @@ def load():
     data = data.drop(list(sus_cases.index))
     # print(len(data))
 
-    # Take only radboud rows
-    data = data.loc[data["data_provider"]=="radboud"]
+    # # Take only radboud rows
+    # data = data.loc[data["data_provider"]=="radboud"]
 
-    # # Take only karolinksa rows
-    # karolinska = data.loc[data["data_provider"]=="karolinska"]
+    # Take only karolinksa rows
+    data = data.loc[data["data_provider"]=="karolinska"]
 
     # partition the data into training and testing splits using 95% of
     # the data for training and the remaining 5% for testing

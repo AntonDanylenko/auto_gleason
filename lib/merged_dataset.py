@@ -65,7 +65,7 @@ class MergedDataset(Dataset):
       # Select random file, it's mask thumbnail, and get all non-empty coordinates
       filename = random.choice(self.wsi_names, size=1)[0]
       mask_thumbnail = self.mask_thumbnails[filename]
-      indices = np.transpose(np.where(mask_thumbnail>1))
+      indices = np.transpose(np.where(mask_thumbnail==pseudo_epoch_i%2+1)) # ==2 for cancer, ==1 for benign
       # print(indices.size)
       # resample_count = 1
       while (indices.size==0):
@@ -76,7 +76,7 @@ class MergedDataset(Dataset):
         #   plt.show()
         filename = random.choice(self.wsi_names, size=1)[0]
         mask_thumbnail = self.mask_thumbnails[filename]
-        indices = np.transpose(np.where(mask_thumbnail>1))
+        indices = np.transpose(np.where(mask_thumbnail==pseudo_epoch_i%2+1))
         # resample_count+=1
 
       width, height = self.slide_dict[filename]['size']
