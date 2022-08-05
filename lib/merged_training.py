@@ -4,6 +4,7 @@ from lib.globals import *
 from lib.thumbnail import *
 from lib.unet import *
 from lib.dice import *
+from lib.dice_loss import *
 
 import math
 import matplotlib.pyplot as plt
@@ -44,9 +45,10 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 	# initialize our UNet model
 	unet = UNet().to(DEVICE)
 	# initialize loss function, metric function, and optimizer
-	lossFunc = smp.losses.FocalLoss('multiclass') # focal loss, intersection over union
+	# lossFunc = smp.losses.FocalLoss('multiclass') # focal loss, intersection over union
 	# lossFunc = smp.losses.DiceLoss('multiclass', classes=6) # dice loss
 	# lossFunc = BCEWithLogitsLoss()
+	lossFunc = DiceLoss(weights=[1,1,2],num_classes=MERGED_NUM_CLASSES)
 	opt = Adam(unet.parameters(), lr=INIT_LR)
 	# calculate steps per epoch for training and validation set
 	trainSteps = len(trainDS) // BATCH_SIZE
@@ -75,10 +77,11 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 			(x, y) = (x.to(DEVICE), y.to(DEVICE))
 			# perform a forward pass and calculate the training loss
 			pred = unet(x).squeeze() #.type(dtype=torch.uint8)
+			pred = torch.argmax(pred, dim=1)
 			y = y.squeeze().type(dtype=torch.long)
-			# print(f'preds {pred.shape}')
+			# print(f'pred shape: {pred.shape}')
 			# print(f'y shape: {y.shape}')
-			loss = lossFunc(pred, y)
+			loss = lossFunc(pred, y) #[0]
 			# print(f'loss: {loss}')
 			# print(f'loss shape: {loss.shape}')
 			# first, zero out any previously accumulated gradients, then
@@ -101,14 +104,19 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 				(x, y) = (x.to(DEVICE), y.to(DEVICE))
 				# make the predictions and calculate the validation loss
 				pred = unet(x).squeeze() #.type(dtype=torch.uint8)
+				pred = torch.argmax(pred, dim=1)
 				y = y.squeeze().type(dtype=torch.long)
-				totalValLoss += lossFunc(pred, y)
+				loss = lossFunc(pred, y)
+				totalValLoss += loss
+				# totalValMetric += ([1.0]*MERGED_NUM_CLASSES-loss[1])
+				# metricCounts += loss[2]
 				# print(f'pred.shape: {pred.shape}')
 				# print(f'y.shape: {y.shape}')
 
+
 				# Calculate validation metric for each class
 				for batch_i in range(BATCH_SIZE):
-					predMask = torch.argmax(pred[batch_i], dim=0)
+					# predMask = torch.argmax(pred[batch_i], dim=0)
 					if batch_i==0:
 						# print(figure_count)
 						all_figure, all_ax = plt.subplots(nrows=1, ncols=3, figsize=(10, 10))
@@ -116,7 +124,7 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 						realMask = y[batch_i].cpu().detach().numpy()
 						all_ax[1].imshow(realMask, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
 						# predMask = torch.argmax(pred[batch_i], dim=0)
-						predMask_np = predMask.cpu().detach().numpy()
+						predMask_np = pred[batch_i].cpu().detach().numpy()
 						all_ax[2].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
 						all_figure.tight_layout()
 						writer.add_figure("Val PredMasks", all_figure, figure_count)
@@ -128,44 +136,45 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 					# print(f"torch.bincount(predMask): {torch.bincount(torch.flatten(predMask))}")
 					# print(f"torch.bincount(y[batch_i]): {torch.bincount(torch.flatten(y[batch_i]))}")
 
-					# Split pred into binary masks for each class
-					pred_split = np.tile(predMask.cpu().detach().numpy(), (MERGED_NUM_CLASSES, 1, 1))
-					for (ii, pred_channel) in enumerate(pred_split):
-						pred_channel = torch.as_tensor(pred_channel).type(dtype=torch.float32)
-						pred_split[ii] = torch.tensor(1.0).where(pred_channel==ii, torch.tensor(0.0))
-					# print(pred_split)
 
-					# Split y into binary masks for each class
-					y_split = np.tile(y[batch_i].cpu().detach().numpy(), (MERGED_NUM_CLASSES, 1, 1))
-					for (ii, y_channel) in enumerate(y_split):
-						y_channel = torch.as_tensor(y_channel).type(dtype=torch.float32)
-						y_split[ii] = torch.tensor(1.0).where(y_channel==ii, torch.tensor(0.0))
-					# print(y_split)
+					# # Split pred into binary masks for each class
+					# pred_split = np.tile(pred[batch_i].cpu().detach().numpy(), (MERGED_NUM_CLASSES, 1, 1))
+					# for (ii, pred_channel) in enumerate(pred_split):
+					# 	pred_channel = torch.as_tensor(pred_channel).type(dtype=torch.float32)
+					# 	pred_split[ii] = torch.tensor(1.0).where(pred_channel==ii, torch.tensor(0.0))
+					# # print(pred_split)
 
-					# Use (1 - dice loss) as metric for each class
-					for class_i in range(MERGED_NUM_CLASSES):
-						# Check if any pixels in the image are of the class at all
-						# If so, compute dice loss on the channel
-						if torch.count_nonzero(torch.as_tensor(y_split[class_i]))>0:
-							pred_channel = torch.unsqueeze(torch.unsqueeze(torch.as_tensor(pred_split[class_i]),0),0)
-							y_channel = torch.unsqueeze(torch.unsqueeze(torch.as_tensor(y_split[class_i]),0),0)
-							# print(f"Num 1s in pred_channel {class_i}: {torch.count_nonzero(pred_channel)}")
-							# print(f"pred_channel.shape: {pred_channel.shape}")
-							# print(f"y_channel.shape: {y_channel.shape}")
-							diceLoss = DiceLoss(pred_channel.type(dtype=torch.float32), y_channel.type(dtype=torch.float32))
-							totalValMetric[class_i] += (1.0 - diceLoss)
-							metricCounts[class_i] += 1
+					# # Split y into binary masks for each class
+					# y_split = np.tile(y[batch_i].cpu().detach().numpy(), (MERGED_NUM_CLASSES, 1, 1))
+					# for (ii, y_channel) in enumerate(y_split):
+					# 	y_channel = torch.as_tensor(y_channel).type(dtype=torch.float32)
+					# 	y_split[ii] = torch.tensor(1.0).where(y_channel==ii, torch.tensor(0.0))
+					# # print(y_split)
 
-							# if class_i==0:
-							# 	all_figure, all_ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
-							# 	realMask = y_split[class_i]
-							# 	all_ax[0].imshow(realMask, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=1)
-							# 	# predMask = torch.argmax(pred[batch_i], dim=0)
-							# 	predMask_np = pred_split[class_i]
-							# 	all_ax[1].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=1)
-							# 	all_figure.tight_layout()
-							# 	writer.add_figure("Val PredMasks Class 0", all_figure, zero_count)
-							# 	zero_count+=1
+					# # Use (1 - dice loss) as metric for each class
+					# for class_i in range(MERGED_NUM_CLASSES):
+					# 	# Check if any pixels in the image are of the class at all
+					# 	# If so, compute dice loss on the channel
+					# 	if torch.count_nonzero(torch.as_tensor(y_split[class_i]))>0:
+					# 		pred_channel = torch.unsqueeze(torch.unsqueeze(torch.as_tensor(pred_split[class_i]),0),0)
+					# 		y_channel = torch.unsqueeze(torch.unsqueeze(torch.as_tensor(y_split[class_i]),0),0)
+					# 		# print(f"Num 1s in pred_channel {class_i}: {torch.count_nonzero(pred_channel)}")
+					# 		# print(f"pred_channel.shape: {pred_channel.shape}")
+					# 		# print(f"y_channel.shape: {y_channel.shape}")
+					# 		diceLoss = DiceLoss(pred_channel.type(dtype=torch.float32), y_channel.type(dtype=torch.float32))
+					# 		totalValMetric[class_i] += (1.0 - diceLoss)
+					# 		metricCounts[class_i] += 1
+
+					# 		# if class_i==0:
+					# 		# 	all_figure, all_ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
+					# 		# 	realMask = y_split[class_i]
+					# 		# 	all_ax[0].imshow(realMask, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=1)
+					# 		# 	# predMask = torch.argmax(pred[batch_i], dim=0)
+					# 		# 	predMask_np = pred_split[class_i]
+					# 		# 	all_ax[1].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=1)
+					# 		# 	all_figure.tight_layout()
+					# 		# 	writer.add_figure("Val PredMasks Class 0", all_figure, zero_count)
+					# 		# 	zero_count+=1
 
 		# Resample the pseudo epoch and refresh data loader
 		trainDS.resample_pseudo_epoch()
@@ -190,8 +199,8 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 		for ii in range(MERGED_NUM_CLASSES):
 			print("Val metric for class {}: {:.6f}".format(ii, avgValMetric[ii]))
 
-		if avgValMetric[2]>0.75 and sum(avgValMetric)/3>0.71:
-			break
+		# if avgValMetric[2]>0.75 and sum(avgValMetric)/3>0.71:
+		# 	break
 
 	# Display the total time needed to perform the training
 	endTime = time.time()
