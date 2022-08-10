@@ -4,7 +4,7 @@ from lib.globals import *
 from lib.thumbnail import *
 from lib.unet import *
 from lib.dice import *
-from lib.dice_loss import *
+# from lib.dice_loss import *
 
 import math
 import matplotlib.pyplot as plt
@@ -38,17 +38,17 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 
 	# create the training and validation data loaders
 	trainLoader = DataLoader(trainDS, shuffle=True,
-		batch_size=BATCH_SIZE, num_workers=4)
+		batch_size=BATCH_SIZE, num_workers=0)
 	valLoader = DataLoader(valDS, shuffle=False,
-		batch_size=BATCH_SIZE, num_workers=4)
+		batch_size=BATCH_SIZE, num_workers=0)
 
 	# initialize our UNet model
 	unet = UNet().to(DEVICE)
 	# initialize loss function, metric function, and optimizer
-	# lossFunc = smp.losses.FocalLoss('multiclass') # focal loss, intersection over union
+	lossFunc = smp.losses.FocalLoss('multiclass') # focal loss, intersection over union
 	# lossFunc = smp.losses.DiceLoss('multiclass', classes=6) # dice loss
 	# lossFunc = BCEWithLogitsLoss()
-	lossFunc = DiceLoss(weights=[1,1,2],num_classes=MERGED_NUM_CLASSES)
+	# lossFunc = DiceLoss(weights=[1,1,2],num_classes=MERGED_NUM_CLASSES)
 	opt = Adam(unet.parameters(), lr=INIT_LR)
 	# calculate steps per epoch for training and validation set
 	trainSteps = len(trainDS) // BATCH_SIZE
@@ -77,7 +77,7 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 			(x, y) = (x.to(DEVICE), y.to(DEVICE))
 			# perform a forward pass and calculate the training loss
 			pred = unet(x).squeeze() #.type(dtype=torch.uint8)
-			pred = torch.argmax(pred, dim=1)
+			# pred = torch.argmax(pred, dim=1)
 			y = y.squeeze().type(dtype=torch.long)
 			# print(f'pred shape: {pred.shape}')
 			# print(f'y shape: {y.shape}')
@@ -104,7 +104,7 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 				(x, y) = (x.to(DEVICE), y.to(DEVICE))
 				# make the predictions and calculate the validation loss
 				pred = unet(x).squeeze() #.type(dtype=torch.uint8)
-				pred = torch.argmax(pred, dim=1)
+				# pred = torch.argmax(pred, dim=1)
 				y = y.squeeze().type(dtype=torch.long)
 				loss = lossFunc(pred, y)
 				totalValLoss += loss
@@ -116,7 +116,7 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 
 				# Calculate validation metric for each class
 				for batch_i in range(BATCH_SIZE):
-					# predMask = torch.argmax(pred[batch_i], dim=0)
+					predMask = torch.argmax(pred[batch_i], dim=0)
 					if batch_i==0:
 						# print(figure_count)
 						all_figure, all_ax = plt.subplots(nrows=1, ncols=3, figsize=(10, 10))
@@ -124,7 +124,7 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 						realMask = y[batch_i].cpu().detach().numpy()
 						all_ax[1].imshow(realMask, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
 						# predMask = torch.argmax(pred[batch_i], dim=0)
-						predMask_np = pred[batch_i].cpu().detach().numpy()
+						predMask_np = predMask.cpu().detach().numpy()
 						all_ax[2].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=2)
 						all_figure.tight_layout()
 						writer.add_figure("Val PredMasks", all_figure, figure_count)
@@ -137,44 +137,48 @@ def mergedTraining(train_img_names, val_img_names, thumbnails_dict):
 					# print(f"torch.bincount(y[batch_i]): {torch.bincount(torch.flatten(y[batch_i]))}")
 
 
-					# # Split pred into binary masks for each class
-					# pred_split = np.tile(pred[batch_i].cpu().detach().numpy(), (MERGED_NUM_CLASSES, 1, 1))
+					# Split pred into binary masks for each class
+					pred_split = torch.permute(F.one_hot(predMask, MERGED_NUM_CLASSES),(2,0,1))
+					# pred_split = np.tile(predMask.cpu().detach().numpy(), (MERGED_NUM_CLASSES, 1, 1))
 					# for (ii, pred_channel) in enumerate(pred_split):
 					# 	pred_channel = torch.as_tensor(pred_channel).type(dtype=torch.float32)
 					# 	pred_split[ii] = torch.tensor(1.0).where(pred_channel==ii, torch.tensor(0.0))
-					# # print(pred_split)
+					# print(pred_split)
 
-					# # Split y into binary masks for each class
+					# Split y into binary masks for each class
+					y_split = torch.permute(F.one_hot(y[batch_i], MERGED_NUM_CLASSES),(2,0,1))
 					# y_split = np.tile(y[batch_i].cpu().detach().numpy(), (MERGED_NUM_CLASSES, 1, 1))
 					# for (ii, y_channel) in enumerate(y_split):
 					# 	y_channel = torch.as_tensor(y_channel).type(dtype=torch.float32)
 					# 	y_split[ii] = torch.tensor(1.0).where(y_channel==ii, torch.tensor(0.0))
-					# # print(y_split)
+					# print(y_split)
 
-					# # Use (1 - dice loss) as metric for each class
-					# for class_i in range(MERGED_NUM_CLASSES):
-					# 	# Check if any pixels in the image are of the class at all
-					# 	# If so, compute dice loss on the channel
-					# 	if torch.count_nonzero(torch.as_tensor(y_split[class_i]))>0:
-					# 		pred_channel = torch.unsqueeze(torch.unsqueeze(torch.as_tensor(pred_split[class_i]),0),0)
-					# 		y_channel = torch.unsqueeze(torch.unsqueeze(torch.as_tensor(y_split[class_i]),0),0)
-					# 		# print(f"Num 1s in pred_channel {class_i}: {torch.count_nonzero(pred_channel)}")
-					# 		# print(f"pred_channel.shape: {pred_channel.shape}")
-					# 		# print(f"y_channel.shape: {y_channel.shape}")
-					# 		diceLoss = DiceLoss(pred_channel.type(dtype=torch.float32), y_channel.type(dtype=torch.float32))
-					# 		totalValMetric[class_i] += (1.0 - diceLoss)
-					# 		metricCounts[class_i] += 1
+					# Use (1 - dice loss) as metric for each class
+					for class_i in range(MERGED_NUM_CLASSES):
+						# Check if any pixels in the image are of the class at all
+						# If so, compute dice loss on the channel
+						if torch.any(y_split[class_i]):
+							# pred_channel = torch.unsqueeze(torch.unsqueeze(pred_split[class_i],0),0)
+							# y_channel = torch.unsqueeze(torch.unsqueeze(y_split[class_i],0),0)
+							pred_channel = pred_split[class_i]
+							y_channel = y_split[class_i]
+							# print(f"Num 1s in pred_channel {class_i}: {torch.count_nonzero(pred_channel)}")
+							# print(f"pred_channel.shape: {pred_channel.shape}")
+							# print(f"y_channel.shape: {y_channel.shape}")
+							diceLoss = DiceLoss(pred_channel.type(dtype=torch.float32), y_channel.type(dtype=torch.float32))
+							totalValMetric[class_i] += (1.0 - diceLoss)
+							metricCounts[class_i] += 1
 
-					# 		# if class_i==0:
-					# 		# 	all_figure, all_ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
-					# 		# 	realMask = y_split[class_i]
-					# 		# 	all_ax[0].imshow(realMask, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=1)
-					# 		# 	# predMask = torch.argmax(pred[batch_i], dim=0)
-					# 		# 	predMask_np = pred_split[class_i]
-					# 		# 	all_ax[1].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=1)
-					# 		# 	all_figure.tight_layout()
-					# 		# 	writer.add_figure("Val PredMasks Class 0", all_figure, zero_count)
-					# 		# 	zero_count+=1
+							# if class_i==0:
+							# 	all_figure, all_ax = plt.subplots(nrows=1, ncols=2, figsize=(10, 10))
+							# 	realMask = y_split[class_i]
+							# 	all_ax[0].imshow(realMask, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=1)
+							# 	# predMask = torch.argmax(pred[batch_i], dim=0)
+							# 	predMask_np = pred_split[class_i]
+							# 	all_ax[1].imshow(predMask_np, cmap=merged_cmap, interpolation='nearest', vmin=0, vmax=1)
+							# 	all_figure.tight_layout()
+							# 	writer.add_figure("Val PredMasks Class 0", all_figure, zero_count)
+							# 	zero_count+=1
 
 		# Resample the pseudo epoch and refresh data loader
 		trainDS.resample_pseudo_epoch()

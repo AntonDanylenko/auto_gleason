@@ -63,7 +63,7 @@ class MergedDataset(Dataset):
 
     for pseudo_epoch_i in range(self.pseudo_epoch_length):
       # Select either 0 or 2 as the target class of this patch
-      target_class = random.choice([0,2,2],size=1)[0]
+      target_class = random.choice([0,2,2,2,2,2],size=1)[0]
 
       # Select random file, it's mask thumbnail, and get all non-empty coordinates
       filename = random.choice(self.wsi_names, size=1)[0]
@@ -88,41 +88,40 @@ class MergedDataset(Dataset):
 
       # Pick random index and invert coordinates from (y,x) to (x,y)
       rand_index = random.randint(len(indices))
-      coord = indices[rand_index]
-      # print(coord)
-      if coord[0]<1: coord[0]=1
-      if coord[0]>thumbnail_width-2: coord[0]=thumbnail_width-2
-      if coord[1]<1: coord[1]=1
-      if coord[1]>thumbnail_height-2: coord[1]=thumbnail_height-2
-      # print(coord)
-      count_surrounding = 0
-      for offset_x in [-1,0,1]:
-        for offset_y in [-1,0,1]:
-          count_surrounding += mask_thumbnail[coord[0]+offset_x,coord[1]+offset_y]==target_class
-      # print(count_surrounding)
-      if (target_class==0 and count_surrounding>6) or (target_class==2 and count_surrounding<8):
-        rand_index = random.randint(len(indices))
-        coord = indices[rand_index]
-        # print(coord)
-        if coord[0]<1: coord[0]=1
-        if coord[0]>thumbnail_width-2: coord[0]=thumbnail_width-2
-        if coord[1]<1: coord[1]=1
-        if coord[1]>thumbnail_height-2: coord[1]=thumbnail_height-2
-        # print(coord)
-        count_surrounding = 0
-        for offset_x in [-1,0,1]:
-          for offset_y in [-1,0,1]:
-            count_surrounding += mask_thumbnail[coord[0]+offset_x,coord[1]+offset_y]==target_class
-        # print(count_surrounding)
-
-      coord = coord[::-1]
+      coord = indices[rand_index][::-1]
+      # # print(coord)
+      # if coord[0]<1: coord[0]=1
+      # if coord[0]>thumbnail_width-2: coord[0]=thumbnail_width-2
+      # if coord[1]<1: coord[1]=1
+      # if coord[1]>thumbnail_height-2: coord[1]=thumbnail_height-2
+      # # print(coord)
+      # count_surrounding = 0
+      # for offset_x in [-1,0,1]:
+      #   for offset_y in [-1,0,1]:
+      #     count_surrounding += mask_thumbnail[coord[0]+offset_x,coord[1]+offset_y]==target_class
+      # # print(count_surrounding)
+      # if (target_class==0 and count_surrounding>6) or (target_class==2 and count_surrounding<8):
+      #   rand_index = random.randint(len(indices))
+      #   coord = indices[rand_index]
+      #   # print(coord)
+      #   if coord[0]<1: coord[0]=1
+      #   if coord[0]>thumbnail_width-2: coord[0]=thumbnail_width-2
+      #   if coord[1]<1: coord[1]=1
+      #   if coord[1]>thumbnail_height-2: coord[1]=thumbnail_height-2
+      #   # print(coord)
+      #   count_surrounding = 0
+      #   for offset_x in [-1,0,1]:
+      #     for offset_y in [-1,0,1]:
+      #       count_surrounding += mask_thumbnail[coord[0]+offset_x,coord[1]+offset_y]==target_class
+      #   # print(count_surrounding)
+      # coord = coord[::-1]
 
       # Scale coord to wsi size and add a little randomness
-      coord[0] = (coord[0]-1)*PATCH_WIDTH//3 + random.randint(low=-PATCH_WIDTH//OFFSET_SCALE,
+      coord[0] = (coord[0])*PATCH_WIDTH + random.randint(low=-PATCH_WIDTH//OFFSET_SCALE,
                                                               high=PATCH_WIDTH//OFFSET_SCALE)
       if coord[0]<0: coord[0]=0
       if coord[0]>width-PATCH_WIDTH: coord[0]=width-PATCH_WIDTH
-      coord[1] = (coord[1]-1)*PATCH_HEIGHT//3 + random.randint(low=-PATCH_HEIGHT//OFFSET_SCALE,
+      coord[1] = (coord[1])*PATCH_HEIGHT + random.randint(low=-PATCH_HEIGHT//OFFSET_SCALE,
                                                               high=PATCH_HEIGHT//OFFSET_SCALE)
       if coord[1]<0: coord[1]=0
       if coord[1]>height-PATCH_HEIGHT: coord[1]=height-PATCH_HEIGHT

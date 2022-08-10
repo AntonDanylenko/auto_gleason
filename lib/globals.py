@@ -9,11 +9,11 @@ NUM_LEVELS = 3
 # initialize learning rate, number of epochs to train for, and the batch size
 INIT_LR = 0.001
 NUM_EPOCHS = 50
-BATCH_SIZE = 32
-NUM_PSEUDO_EPOCHS = 512
+BATCH_SIZE = 64
+NUM_PSEUDO_EPOCHS = 1024
 # define the input image dimensions
-PATCH_WIDTH = 512
-PATCH_HEIGHT = 512
+PATCH_WIDTH = 256
+PATCH_HEIGHT = 256
 # Define divisor for patch coord offset when randomly picking patches
 OFFSET_SCALE = 8
 # define translation from 0 to min gleason score

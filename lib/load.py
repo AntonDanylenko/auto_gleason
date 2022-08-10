@@ -25,22 +25,20 @@ def load():
     # print(len(data))
 
     # Take only radboud rows
-    data = data.loc[data["data_provider"]=="radboud"]
+    radboud = data.loc[data["data_provider"]=="radboud"]
 
     # # Take only karolinksa rows
     # data = data.loc[data["data_provider"]=="karolinska"]
 
     # partition the data into training and testing splits using 95% of
     # the data for training and the remaining 5% for testing
-    # all_train_rows = radboud.sample(frac=TEST_SPLIT)
-    # test_rows = radboud.drop(all_train_rows.index)
-    all_train_rows = data.sample(frac=TEST_SPLIT)
-    test_rows = data.drop(all_train_rows.index)
+    # all_train_rows = data.sample(frac=TEST_SPLIT)
+    # test_rows = data.drop(all_train_rows.index)
 
     # partition the training data into training and validation splits using 85% of
     # the data for training and the remaining 15% for validation
-    train_rows = all_train_rows.sample(frac=VAL_SPLIT)
-    val_rows = all_train_rows.drop(train_rows.index)
+    val_rows = radboud.sample(frac=1-VAL_SPLIT)
+    train_rows = data.drop(val_rows.index)
     
     # # Get only wsi names
     # train_img_names = []
@@ -52,12 +50,12 @@ def load():
     
     train_img_names = list(train_rows.index)
     val_img_names = list(val_rows.index)
-    test_img_names = list(test_rows.index)
+    test_img_names = [] #list(test_rows.index)
 
     # Get mask thumbnail dictionary
-    thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH//3) + "x" + str(PATCH_HEIGHT//3) + ".p"
+    thumbnail_filename = "./data/thumbnails_" + str(PATCH_WIDTH) + "x" + str(PATCH_HEIGHT) + ".p"
     if not os.path.exists(thumbnail_filename):
-        create_thumbnails(PATCH_WIDTH//3, PATCH_HEIGHT//3)
+        create_thumbnails(PATCH_WIDTH, PATCH_HEIGHT)
     with open(thumbnail_filename, "rb") as fp:
         thumbnails_dict = pickle.load(fp)
 

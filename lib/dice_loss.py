@@ -19,6 +19,8 @@ class DiceLoss(_Loss):
         # Initialize total losses array and count array
         totalLosses = torch.zeros(self.num_classes).to(DEVICE)
         lossCounts = torch.zeros(self.num_classes).to(DEVICE)
+        totalLoss = 0
+        totalCount = 0
 
         for batch_i in range(BATCH_SIZE):
             # Split input into binary masks for each class
@@ -37,10 +39,17 @@ class DiceLoss(_Loss):
             #     target_split[ii] = torch.tensor(1.0).where(target_channel==ii, torch.tensor(0.0)).requires_grad_()
             # print(target_split.shape)
 
+            # intersection = torch.sum(input_split * target_split)
+            # dice_coef = (2.0*intersection)/(torch.sum(input_split + target_split))
+            # diceLoss = (1-dice_coef)*self.weights[class_i]
+            
+            # totalLoss += diceLoss
+            # totalCount += 1
+
             for class_i in range(self.num_classes):
                 # Check if any pixels in the image are of the class at all
                 # If so, compute dice loss on the channel
-                if torch.sum(target_split[class_i])>0:
+                if torch.any(target_split[class_i]):
                     # input_channel = torch.unsqueeze(torch.unsqueeze(torch.as_tensor(input_split[class_i]),0),0)
                     # target_channel = torch.unsqueeze(torch.unsqueeze(torch.as_tensor(target_split[class_i]),0),0)
                     input_channel = input_split[class_i]
@@ -51,11 +60,15 @@ class DiceLoss(_Loss):
                     # input_channel = torch.flatten(input_channel.type(dtype=torch.float32))
                     # target_channel = torch.flatten(target_channel.type(dtype=torch.float32))
                     intersection = torch.sum(input_channel * target_channel)
-                    dice_coef = (2.0*intersection)/(torch.sum(input_channel)+torch.sum(target_channel))
+                    dice_coef = (2.0*intersection)/(torch.sum(input_channel + target_channel))
                     diceLoss = (1-dice_coef)*self.weights[class_i]
                     
                     totalLosses[class_i] += diceLoss
                     lossCounts[class_i] += 1
+                # except RuntimeError:
+                #     print(f"class_i {class_i}")
+                #     print(f"target shape {target_split[class_i].shape}")
+                #     print(f"target device {target_split[class_i].device}")
 
         # avgLosses = [0]*self.num_classes
         # for ii in range(self.num_classes):
